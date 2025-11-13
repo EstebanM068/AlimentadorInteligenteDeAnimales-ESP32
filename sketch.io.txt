@@ -1,0 +1,56 @@
+// Comedero inteligente - ESP32
+// PIR: GPIO 2   LED: GPIO 5   SERVO: GPIO 13
+
+#include <ESP32Servo.h>
+
+constexpr int PIN_PIR   = 2;
+constexpr int PIN_LED   = 5;
+constexpr int PIN_SERVO = 13;
+
+constexpr int ANGULO_CERRADO = 40;
+constexpr int ANGULO_ABIERTO = 140;
+
+constexpr unsigned long TIEMPO_SERVIDO_MS   = 1500;   // tiempo de apertura
+constexpr unsigned long REFACTARIA_MS       = 10000;  // ventana para no servir de más
+constexpr unsigned long LOOP_DELAY_MS       = 40;     // anti-rebote leve PIR
+
+Servo servoDisp;
+unsigned long tUltimoServicio = 0;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PIN_PIR, INPUT);
+  pinMode(PIN_LED, OUTPUT);
+
+  // En ESP32Servo, attach maneja el canal PWM internamente
+  servoDisp.attach(PIN_SERVO);
+  servoDisp.write(ANGULO_CERRADO);
+
+  digitalWrite(PIN_LED, LOW);
+  Serial.println("Listo. Esperando detección...");
+}
+
+void loop() {
+  const bool hayMovimiento = digitalRead(PIN_PIR) == HIGH;
+  const unsigned long ahora = millis();
+
+  // ¿Podemos servir? Solo si hay movimiento y ya pasó la ventana refractaria
+  if (hayMovimiento && (ahora - tUltimoServicio >= REFACTARIA_MS)) {
+    Serial.println("Mascota detectada → dispensando alimento.");
+
+    // Abrir tapa
+    servoDisp.write(ANGULO_ABIERTO);
+    digitalWrite(PIN_LED, HIGH);
+    delay(TIEMPO_SERVIDO_MS);
+
+    // Cerrar tapa
+    servoDisp.write(ANGULO_CERRADO);
+    digitalWrite(PIN_LED, LOW);
+
+    tUltimoServicio = millis();
+    Serial.println("Dispensación completada. Sistema en espera.");
+  }
+
+  delay(LOOP_DELAY_MS);
+}
